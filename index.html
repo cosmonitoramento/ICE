@@ -7,6 +7,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body {
             background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)),
@@ -134,6 +135,34 @@
         .btn-primary:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+        }
+        
+        .btn-success {
+            background: linear-gradient(45deg, #10b981, #059669);
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+        }
+        
+        .btn-warning {
+            background: linear-gradient(45deg, #f59e0b, #d97706);
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-warning:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
         }
         
         .item-lista {
@@ -288,6 +317,18 @@
             border-radius: 20px;
         }
         
+        .export-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: flex-end;
+        }
+        
+        .mini-chart-container {
+            height: 300px;
+            margin-bottom: 20px;
+        }
+        
         /* Responsividade */
         @media (max-width: 768px) {
             .main-container {
@@ -315,6 +356,10 @@
             .kpi-row {
                 flex-direction: column;
                 gap: 15px;
+            }
+            
+            .export-buttons {
+                flex-direction: column;
             }
         }
         
@@ -349,6 +394,15 @@
         .content-area::-webkit-scrollbar-thumb:hover,
         .ice-list-container::-webkit-scrollbar-thumb:hover {
             background: #2c5530;
+        }
+        
+        @media print {
+            body { background: white !important; color: black !important; }
+            .sidebar { display: none !important; }
+            .main-container { flex-direction: column; }
+            .content-area { background: white !important; box-shadow: none !important; }
+            .export-buttons { display: none !important; }
+            .btn { display: none !important; }
         }
     </style>
 </head>
@@ -405,8 +459,7 @@
         <div class="content-area">
             <!-- Header do sistema -->
             <div class="system-header">
-                <h1><i class="fas fa-exclamation-triangle"></i> ÍNDICE DE CONTROLE DE EMERGÊNCIA 
- ICE</h1>
+                <h1><i class="fas fa-exclamation-triangle"></i> ÍNDICE DE CONTROLE DE EMERGÊNCIA - ICE</h1>
                 <p class="subtitle">Gestão Integrada de Incidentes e Comunicação de Emergência</p>
             </div>
 
@@ -414,6 +467,19 @@
             <div class="tab-content">
                 <!-- Aba Dashboard -->
                 <div class="tab-pane fade show active fade-in" id="dashboard">
+                    <!-- Botões de Export -->
+                    <div class="export-buttons">
+                        <button class="btn btn-success" onclick="exportarExcel()">
+                            <i class="fas fa-file-excel"></i> Exportar Excel
+                        </button>
+                        <button class="btn btn-warning" onclick="imprimirRelatorio()">
+                            <i class="fas fa-print"></i> Imprimir Relatório
+                        </button>
+                        <button class="btn btn-info" onclick="debugGraficos()">
+                            <i class="fas fa-bug"></i> Debug Gráficos
+                        </button>
+                    </div>
+
                     <!-- Filtros -->
                     <div class="filter-section">
                         <div class="row">
@@ -465,29 +531,49 @@
                             <div class="metric-label">Taxa Real (%)</div>
                             <div class="metric-number" id="taxa_real">0%</div>
                         </div>
+                        <div class="metric-card kpi-card" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
+                            <div class="metric-label">Total BCs</div>
+                            <div class="metric-number" id="total_bcs">0</div>
+                        </div>
                     </div>
 
-                    <!-- Gráficos -->
+                    <!-- Gráficos Principais -->
                     <div class="row">
-                        <!-- Quantitativo Acumulado ICE 2024/2025 -->
+                        <!-- Comparativo ICE 2024 vs 2025 -->
                         <div class="col-lg-6">
                             <div class="card dashboard-card">
                                 <div class="card-header">
-                                    <h5 class="mb-0"><i class="fas fa-chart-bar"></i> QUANTITATIVO ACUMULADO ICE</h5>
+                                    <h5 class="mb-0"><i class="fas fa-chart-line"></i> COMPARATIVO ICE 2024 vs 2025</h5>
                                 </div>
                                 <div class="card-body">
                                     <div class="chart-container">
-                                        <canvas id="chart_acumulado"></canvas>
+                                        <canvas id="chart_comparativo_anos"></canvas>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Quantitativo por Tipificação Maio/2025 -->
+                        <!-- Tipificação por Mês - Novo Gráfico -->
                         <div class="col-lg-6">
                             <div class="card dashboard-card">
                                 <div class="card-header">
-                                    <h5 class="mb-0"><i class="fas fa-tags"></i> QUANTITATIVO POR TIPIFICAÇÃO</h5>
+                                    <h5 class="mb-0"><i class="fas fa-chart-bar"></i> TIPIFICAÇÃO POR MÊS - 2025</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="chart-container">
+                                        <canvas id="chart_tipificacao_por_mes"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <!-- Quantitativo por Tipificação - Mês Atual -->
+                        <div class="col-lg-6">
+                            <div class="card dashboard-card">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="fas fa-tags"></i> TIPIFICAÇÃO - MÊS ATUAL</h5>
                                 </div>
                                 <div class="card-body">
                                     <div class="chart-container">
@@ -496,32 +582,92 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="row">
-                        <!-- Quantitativo por Gerência Maio/2025 -->
+                        <!-- Quantitativo BCs por Mês -->
                         <div class="col-lg-6">
                             <div class="card dashboard-card">
                                 <div class="card-header">
-                                    <h5 class="mb-0"><i class="fas fa-building"></i> QUANTITATIVO POR GERÊNCIA</h5>
+                                    <h5 class="mb-0"><i class="fas fa-broadcast-tower"></i> QUANTITATIVO BCs POR MÊS</h5>
                                 </div>
                                 <div class="card-body">
                                     <div class="chart-container">
-                                        <canvas id="chart_gerencia"></canvas>
+                                        <canvas id="chart_bcs_mes"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <!-- Quantitativo por Gerência - Mês Atual -->
+                        <div class="col-lg-6">
+                            <div class="card dashboard-card">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="fas fa-building"></i> GERÊNCIAS - MÊS ATUAL</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="chart-container">
+                                        <canvas id="chart_gerencia_mes"></canvas>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Quantitativo Anual por Tipificação 2025 -->
+                        <!-- Tipificação Anual -->
                         <div class="col-lg-6">
                             <div class="card dashboard-card">
                                 <div class="card-header">
-                                    <h5 class="mb-0"><i class="fas fa-chart-line"></i> QUANTITATIVO ANUAL POR TIPIFICAÇÃO </h5>
+                                    <h5 class="mb-0"><i class="fas fa-chart-pie"></i> TIPIFICAÇÃO - ANO ATUAL</h5>
                                 </div>
                                 <div class="card-body">
                                     <div class="chart-container">
                                         <canvas id="chart_tipificacao_anual"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <!-- Gerência Anual -->
+                        <div class="col-lg-6">
+                            <div class="card dashboard-card">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="fas fa-chart-bar"></i> GERÊNCIAS - ANO ATUAL</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="chart-container">
+                                        <canvas id="chart_gerencia_anual"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- BCs Comparativo Anual -->
+                        <div class="col-lg-6">
+                            <div class="card dashboard-card">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="fas fa-signal"></i> BCs COMPARATIVO 2024 vs 2025</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="chart-container">
+                                        <canvas id="chart_bcs_comparativo"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Evolução Mensal ICEs -->
+                    <div class="row">
+                        <div class="col-lg-12">
+                            <div class="card dashboard-card">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="fas fa-chart-area"></i> EVOLUÇÃO MENSAL - 2025</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="chart-container">
+                                        <canvas id="chart_evolucao_mensal"></canvas>
                                     </div>
                                 </div>
                             </div>
@@ -604,7 +750,7 @@
                                             </div>
                                             <div class="row mt-3">
                                                 <div class="col-md-6">
-                                                    <label class="form-label">Ger. Jirau</label>
+                                                    <label class="form-label">Gerência Jirau</label>
                                                     <select id="ice_ger_jirau" class="form-select">
                                                         <option value="">Selecione uma gerência</option>
                                                     </select>
@@ -639,22 +785,11 @@
                                             </div>
                                             <div class="row mt-3">
                                                 <div class="col-md-3">
-
-
-
-
-
-
-                                            
-                                                    
-                                                 
-                                          <!-- Atualizar -->
-                                                    <label class="form-label">Gerência Jirau</label>
-                                                    <input type="text" id="ice_departamento" class="form-control">
+                                                    <label class="form-label">Gerência Informante</label>
+                                                    <select id="ice_gerencia_informante" class="form-select">
+                                                        <option value="">Selecione uma gerência</option>
+                                                    </select>
                                                 </div>
-
-
-
                                                 <div class="col-md-3">
                                                     <label class="form-label">Data Inf.</label>
                                                     <input type="date" id="ice_data_inf" class="form-control">
@@ -811,6 +946,8 @@
                                                         <option value="1">1</option>
                                                         <option value="2">2</option>
                                                         <option value="3">3</option>
+                                                        <option value="4">4</option>
+                                                        <option value="5">5</option>
                                                     </select>
                                                 </div>
                                             </div>
@@ -1092,7 +1229,7 @@
     <script>
         const API_URL = 'https://script.google.com/macros/s/AKfycbwlmRP4hZwVhPt36QtLs2MJ2ow76Xx3kTvMm6O4Pkf0R_rNCgMsVXQtu0UuEMaHK0zpNw/exec';
 
-        // Variáveis globais
+        // ========== VARIÁVEIS GLOBAIS ==========
         let proximoNumeroICE = 1;
         let dadosOperadores = [];
         let dadosTipificacoes = [];
@@ -1101,11 +1238,23 @@
         let dadosEmpresas = [];
         let dadosIce = [];
 
-        // Variáveis para gráficos
-        let chartAcumulado, chartTipificacaoMes, chartGerencia, chartTipificacaoAnual;
+        // Objeto para armazenar instâncias dos gráficos
+        const charts = {
+            comparativoAnos: null,
+            tipificacaoMes: null,
+            tipificacaoPorMes: null,
+            bcsMes: null,
+            gerenciaMes: null,
+            tipificacaoAnual: null,
+            gerenciaAnual: null,
+            bcsComparativo: null,
+            evolucaoMensal: null
+        };
 
-        // Controle de navegação
+        // ========== CONTROLE DE NAVEGAÇÃO ==========
         function showTab(tabName) {
+            console.log('Mudando para aba:', tabName);
+            
             // Esconder todas as abas
             const allTabs = document.querySelectorAll('.tab-pane');
             allTabs.forEach(tab => {
@@ -1131,22 +1280,17 @@
             if (activeNavLink) {
                 activeNavLink.classList.add('active');
             }
+
+            // Se for o dashboard, garantir que os gráficos sejam atualizados
+            if (tabName === 'dashboard') {
+                setTimeout(() => {
+                    console.log('Dashboard ativo, atualizando gráficos...');
+                    atualizarTodosGraficos();
+                }, 300);
+            }
         }
 
-        // Event listeners para navegação
-        document.addEventListener('DOMContentLoaded', function() {
-            const navLinks = document.querySelectorAll('.nav-link');
-            navLinks.forEach(link => {
-                link.addEventListener('click', function() {
-                    const target = this.getAttribute('data-target');
-                    if (target) {
-                        showTab(target);
-                    }
-                });
-            });
-        });
-
-        // Função para chamadas API
+        // ========== FUNÇÕES DA API ==========
         async function callAPI(method, action, data = null) {
             try {
                 console.log(`Chamando API: ${method} ${action}`);
@@ -1160,7 +1304,6 @@
                     
                     const response = await fetch(url);
                     const result = await response.json();
-                    console.log(`Resposta API ${action}:`, result);
                     return result;
                 } else {
                     data = data || {};
@@ -1172,7 +1315,6 @@
                         body: new URLSearchParams(data)
                     });
                     const result = await response.json();
-                    console.log(`Resposta API ${action}:`, result);
                     return result;
                 }
             } catch (error) {
@@ -1184,42 +1326,7 @@
             }
         }
 
-        // ========== FUNÇÕES DO DASHBOARD ==========
-        async function carregarDadosDashboard() {
-            console.log('Carregando dados do dashboard...');
-            try {
-                // Mostrar loading
-                document.getElementById('total_ices').textContent = '...';
-                document.getElementById('acionamentos_reais').textContent = '...';
-                document.getElementById('simulados').textContent = '...';
-                document.getElementById('taxa_real').textContent = '...';
-
-                // Carregar dados dos ICEs
-                const responseIce = await callAPI('GET', 'listarIce');
-                
-                if (responseIce.status === 'success') {
-                    dadosIce = responseIce.ice || [];
-                    console.log('Dados ICE carregados:', dadosIce.length, 'registros');
-                } else {
-                    console.error('Erro ao carregar ICEs:', responseIce.message);
-                    dadosIce = [];
-                }
-
-                // Atualizar dashboard
-                atualizarKPIs();
-                atualizarGraficos();
-                atualizarListaIceDashboard();
-                
-            } catch (error) {
-                console.error('Erro ao carregar dados do dashboard:', error);
-                // Resetar valores em caso de erro
-                document.getElementById('total_ices').textContent = '0';
-                document.getElementById('acionamentos_reais').textContent = '0';
-                document.getElementById('simulados').textContent = '0';
-                document.getElementById('taxa_real').textContent = '0%';
-            }
-        }
-
+        // ========== FUNÇÕES DE FILTRO E UTILITÁRIOS ==========
         function filtrarDadosPorPeriodo() {
             const periodo = document.getElementById('filtro_periodo').value;
             const dataInicio = document.getElementById('data_inicio').value;
@@ -1275,90 +1382,145 @@
             return dadosFiltrados;
         }
 
-        function atualizarKPIs() {
-            const dadosFiltrados = filtrarDadosPorPeriodo();
+        function preencherDataHoraAtual() {
+            const agora = new Date();
+            const dataAtual = agora.toISOString().split('T')[0];
+            const horaAtual = agora.toTimeString().split(' ')[0].substring(0, 5);
             
-            const totalIces = dadosFiltrados.length;
-            const acionamentosReais = dadosFiltrados.filter(ice => ice.acionamento_real === 'sim').length;
-            const simulados = dadosFiltrados.filter(ice => ice.acionamento_real === 'simulado').length;
-            const taxaReal = totalIces > 0 ? ((acionamentosReais / totalIces) * 100).toFixed(1) : 0;
-            
-            document.getElementById('total_ices').textContent = totalIces;
-            document.getElementById('acionamentos_reais').textContent = acionamentosReais;
-            document.getElementById('simulados').textContent = simulados;
-            document.getElementById('taxa_real').textContent = taxaReal + '%';
+            document.getElementById('ice_data_lancamento').value = dataAtual;
+            document.getElementById('ice_hora_lancamento').value = horaAtual;
         }
 
-        function atualizarGraficos() {
-            const dadosFiltrados = filtrarDadosPorPeriodo();
+        function preencherSelect(selectId, dados, valueField, textField) {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+
+            const opcaoPadrao = select.querySelector('option[value=""]');
+            select.innerHTML = '';
+            if (opcaoPadrao) {
+                select.appendChild(opcaoPadrao);
+            }
+
+            dados.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item[valueField];
+                option.textContent = item[textField];
+                select.appendChild(option);
+            });
+        }
+
+        // ========== FUNÇÕES DOS GRÁFICOS ==========
+        function destruirGrafico(chartKey) {
+            if (charts[chartKey]) {
+                try {
+                    charts[chartKey].destroy();
+                    charts[chartKey] = null;
+                } catch (error) {
+                    console.warn(`Erro ao destruir gráfico ${chartKey}:`, error);
+                }
+            }
+        }
+
+        function destruirTodosGraficos() {
+            Object.keys(charts).forEach(key => {
+                destruirGrafico(key);
+            });
+        }
+
+        function criarGraficoVazio(canvasId, chartKey, title = 'Sem dados') {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) {
+                console.error(`Canvas ${canvasId} não encontrado`);
+                return;
+            }
+
+            destruirGrafico(chartKey);
+
+            charts[chartKey] = new Chart(canvas.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: ['Sem dados'],
+                    datasets: [{
+                        label: title,
+                        data: [0],
+                        backgroundColor: '#E5E5E5'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true } },
+                    plugins: { 
+                        legend: { display: false },
+                        title: { display: true, text: title }
+                    }
+                }
+            });
+        }
+
+        function criarGraficosVazios() {
+            console.log('Criando gráficos vazios...');
             
-            if (dadosFiltrados.length === 0) {
-                criarGraficosVazios();
+            criarGraficoVazio('chart_comparativo_anos', 'comparativoAnos', 'Comparativo ICE 2024 vs 2025');
+            criarGraficoVazio('chart_tipificacao_mes', 'tipificacaoMes', 'Tipificação - Mês Atual');
+            criarGraficoVazio('chart_tipificacao_por_mes', 'tipificacaoPorMes', 'Tipificação por Mês - 2025');
+            criarGraficoVazio('chart_bcs_mes', 'bcsMes', 'BCs por Mês');
+            criarGraficoVazio('chart_gerencia_mes', 'gerenciaMes', 'Gerências - Mês Atual');
+            criarGraficoVazio('chart_tipificacao_anual', 'tipificacaoAnual', 'Tipificação - Ano Atual');
+            criarGraficoVazio('chart_gerencia_anual', 'gerenciaAnual', 'Gerências - Ano Atual');
+            criarGraficoVazio('chart_bcs_comparativo', 'bcsComparativo', 'BCs Comparativo 2024 vs 2025');
+            criarGraficoVazio('chart_evolucao_mensal', 'evolucaoMensal', 'Evolução Mensal - 2025');
+        }
+
+        function atualizarGraficoComparativoAnos(dados) {
+            console.log('Atualizando gráfico comparativo anos...');
+            const canvas = document.getElementById('chart_comparativo_anos');
+            if (!canvas) {
+                console.error('Canvas chart_comparativo_anos não encontrado');
                 return;
             }
             
-            atualizarGraficoAcumulado(dadosFiltrados);
-            atualizarGraficoTipificacaoMes(dadosFiltrados);
-            atualizarGraficoGerencia(dadosFiltrados);
-            atualizarGraficoTipificacaoAnual(dadosFiltrados);
-        }
-
-        function atualizarGraficoAcumulado(dados) {
-            const ctx = document.getElementById('chart_acumulado').getContext('2d');
-            
-            // Agrupar por mês do ano atual e anterior
-            const contagem2024 = { 'Fev': 0, 'Mar': 0, 'Abr': 0, 'Mai': 0 };
-            const contagem2025 = { 'Fev': 0, 'Mar': 0, 'Abr': 0, 'Mai': 0 };
+            const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+            const dados2024 = new Array(12).fill(0);
+            const dados2025 = new Array(12).fill(0);
             
             dados.forEach(ice => {
                 if (!ice.data) return;
-                const data = new Date(ice.data);
-                const ano = data.getFullYear();
-                const mes = data.getMonth();
-                
-                let mesNome = '';
-                switch (mes) {
-                    case 1: mesNome = 'Fev'; break;
-                    case 2: mesNome = 'Mar'; break;
-                    case 3: mesNome = 'Abr'; break;
-                    case 4: mesNome = 'Mai'; break;
-                }
-                
-                if (mesNome && ano === 2024) {
-                    contagem2024[mesNome]++;
-                } else if (mesNome && ano === 2025) {
-                    contagem2025[mesNome]++;
+                try {
+                    const data = new Date(ice.data);
+                    const ano = data.getFullYear();
+                    const mes = data.getMonth();
+                    
+                    if (ano === 2024) {
+                        dados2024[mes]++;
+                    } else if (ano === 2025) {
+                        dados2025[mes]++;
+                    }
+                } catch (error) {
+                    console.warn('Erro ao processar data do ICE:', ice.data);
                 }
             });
             
-            if (chartAcumulado) {
-                chartAcumulado.destroy();
-            }
+            destruirGrafico('comparativoAnos');
             
-            chartAcumulado = new Chart(ctx, {
-                type: 'bar',
+            charts.comparativoAnos = new Chart(canvas.getContext('2d'), {
+                type: 'line',
                 data: {
-                    labels: ['Fev', 'Mar', 'Abr', 'Mai', 'TOTAL'],
+                    labels: meses,
                     datasets: [{
                         label: '2024',
-                        data: [
-                            contagem2024.Fev, 
-                            contagem2024.Mar, 
-                            contagem2024.Abr, 
-                            contagem2024.Mai,
-                            Object.values(contagem2024).reduce((a, b) => a + b, 0)
-                        ],
-                        backgroundColor: '#4a7c59'
+                        data: dados2024,
+                        borderColor: '#4a7c59',
+                        backgroundColor: 'rgba(74, 124, 89, 0.1)',
+                        tension: 0.4,
+                        fill: false
                     }, {
                         label: '2025',
-                        data: [
-                            contagem2025.Fev, 
-                            contagem2025.Mar, 
-                            contagem2025.Abr, 
-                            contagem2025.Mai,
-                            Object.values(contagem2025).reduce((a, b) => a + b, 0)
-                        ],
-                        backgroundColor: '#2c5530'
+                        data: dados2025,
+                        borderColor: '#2c5530',
+                        backgroundColor: 'rgba(44, 85, 48, 0.1)',
+                        tension: 0.4,
+                        fill: false
                     }]
                 },
                 options: {
@@ -1369,25 +1531,32 @@
                             beginAtZero: true,
                             ticks: { stepSize: 1 }
                         }
+                    },
+                    plugins: {
+                        legend: { position: 'top' }
                     }
                 }
             });
         }
 
         function atualizarGraficoTipificacaoMes(dados) {
-            const ctx = document.getElementById('chart_tipificacao_mes').getContext('2d');
+            console.log('Atualizando gráfico tipificação mês atual...');
+            const canvas = document.getElementById('chart_tipificacao_mes');
+            if (!canvas) return;
             
-            // Filtrar dados do mês atual
             const mesAtual = new Date().getMonth();
             const anoAtual = new Date().getFullYear();
             
             const dadosMes = dados.filter(ice => {
                 if (!ice.data) return false;
-                const data = new Date(ice.data);
-                return data.getMonth() === mesAtual && data.getFullYear() === anoAtual;
+                try {
+                    const data = new Date(ice.data);
+                    return data.getMonth() === mesAtual && data.getFullYear() === anoAtual;
+                } catch (error) {
+                    return false;
+                }
             });
             
-            // Contar por tipificação
             const contagem = {};
             dadosMes.forEach(ice => {
                 const tip = ice.tipificacao || 'Não informado';
@@ -1397,11 +1566,14 @@
             const labels = Object.keys(contagem);
             const values = Object.values(contagem);
             
-            if (chartTipificacaoMes) {
-                chartTipificacaoMes.destroy();
+            destruirGrafico('tipificacaoMes');
+            
+            if (labels.length === 0) {
+                criarGraficoVazio('chart_tipificacao_mes', 'tipificacaoMes', 'Sem dados para o mês atual');
+                return;
             }
             
-            chartTipificacaoMes = new Chart(ctx, {
+            charts.tipificacaoMes = new Chart(canvas.getContext('2d'), {
                 type: 'doughnut',
                 data: {
                     labels: labels,
@@ -1423,12 +1595,162 @@
             });
         }
 
-        function atualizarGraficoGerencia(dados) {
-            const ctx = document.getElementById('chart_gerencia').getContext('2d');
+        function atualizarGraficoTipificacaoPorMes(dados) {
+            console.log('Atualizando gráfico tipificação por mês...');
+            const canvas = document.getElementById('chart_tipificacao_por_mes');
+            if (!canvas) return;
             
-            // Contar por gerência
-            const contagem = {};
+            const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+            const anoAtual = new Date().getFullYear();
+            
+            // Filtrar dados do ano atual
+            const dadosAno = dados.filter(ice => {
+                if (!ice.data) return false;
+                try {
+                    const data = new Date(ice.data);
+                    return data.getFullYear() === anoAtual;
+                } catch (error) {
+                    return false;
+                }
+            });
+            
+            // Obter todas as tipificações
+            const tipificacoes = [...new Set(dadosAno.map(ice => ice.tipificacao || 'Não informado'))];
+            
+            // Criar datasets para cada tipificação
+            const datasets = tipificacoes.map((tip, index) => {
+                const cores = [
+                    '#4a7c59', '#6b8e5a', '#8fa85c', '#b3c25e', 
+                    '#d7dc60', '#fbf662', '#f4d03f', '#f7dc6f',
+                    '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4',
+                    '#ffeaa7', '#dda0dd', '#98d8c8', '#f7dc6f'
+                ];
+                
+                const dadosMes = new Array(12).fill(0);
+                
+                dadosAno.forEach(ice => {
+                    if ((ice.tipificacao || 'Não informado') === tip) {
+                        try {
+                            const data = new Date(ice.data);
+                            const mes = data.getMonth();
+                            dadosMes[mes]++;
+                        } catch (error) {
+                            console.warn('Erro ao processar data:', ice.data);
+                        }
+                    }
+                });
+                
+                return {
+                    label: tip,
+                    data: dadosMes,
+                    backgroundColor: cores[index % cores.length],
+                    borderColor: cores[index % cores.length],
+                    borderWidth: 1
+                };
+            });
+            
+            destruirGrafico('tipificacaoPorMes');
+            
+            if (tipificacoes.length === 0) {
+                criarGraficoVazio('chart_tipificacao_por_mes', 'tipificacaoPorMes', 'Sem dados para o ano atual');
+                return;
+            }
+            
+            charts.tipificacaoPorMes = new Chart(canvas.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: meses,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { stacked: true },
+                        y: { 
+                            stacked: true,
+                            beginAtZero: true,
+                            ticks: { stepSize: 1 }
+                        }
+                    },
+                    plugins: {
+                        legend: { 
+                            position: 'top',
+                            labels: { boxWidth: 12 }
+                        }
+                    }
+                }
+            });
+        }
+
+        function atualizarGraficoBcsMes(dados) {
+            console.log('Atualizando gráfico BCs por mês...');
+            const canvas = document.getElementById('chart_bcs_mes');
+            if (!canvas) return;
+            
+            const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+            const bcsPorMes = new Array(12).fill(0);
+            const anoAtual = new Date().getFullYear();
+            
             dados.forEach(ice => {
+                if (!ice.data) return;
+                try {
+                    const data = new Date(ice.data);
+                    if (data.getFullYear() === anoAtual) {
+                        const mes = data.getMonth();
+                        const bcs = parseInt(ice.quantidade_bcs) || 0;
+                        bcsPorMes[mes] += bcs;
+                    }
+                } catch (error) {
+                    console.warn('Erro ao processar BCs:', error);
+                }
+            });
+            
+            destruirGrafico('bcsMes');
+            
+            charts.bcsMes = new Chart(canvas.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: meses,
+                    datasets: [{
+                        label: 'Quantidade de BCs',
+                        data: bcsPorMes,
+                        backgroundColor: '#4a7c59'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { stepSize: 1 }
+                        }
+                    }
+                }
+            });
+        }
+
+        function atualizarGraficoGerenciaMes(dados) {
+            console.log('Atualizando gráfico gerência mês atual...');
+            const canvas = document.getElementById('chart_gerencia_mes');
+            if (!canvas) return;
+            
+            const mesAtual = new Date().getMonth();
+            const anoAtual = new Date().getFullYear();
+            
+            const dadosMes = dados.filter(ice => {
+                if (!ice.data) return false;
+                try {
+                    const data = new Date(ice.data);
+                    return data.getMonth() === mesAtual && data.getFullYear() === anoAtual;
+                } catch (error) {
+                    return false;
+                }
+            });
+            
+            const contagem = {};
+            dadosMes.forEach(ice => {
                 const ger = ice.ger_jirau || 'Não informado';
                 contagem[ger] = (contagem[ger] || 0) + 1;
             });
@@ -1436,11 +1758,14 @@
             const labels = Object.keys(contagem);
             const values = Object.values(contagem);
             
-            if (chartGerencia) {
-                chartGerencia.destroy();
+            destruirGrafico('gerenciaMes');
+            
+            if (labels.length === 0) {
+                criarGraficoVazio('chart_gerencia_mes', 'gerenciaMes', 'Sem dados para o mês atual');
+                return;
             }
             
-            chartGerencia = new Chart(ctx, {
+            charts.gerenciaMes = new Chart(canvas.getContext('2d'), {
                 type: 'bar',
                 data: {
                     labels: labels,
@@ -1465,17 +1790,21 @@
         }
 
         function atualizarGraficoTipificacaoAnual(dados) {
-            const ctx = document.getElementById('chart_tipificacao_anual').getContext('2d');
+            console.log('Atualizando gráfico tipificação anual...');
+            const canvas = document.getElementById('chart_tipificacao_anual');
+            if (!canvas) return;
             
-            // Filtrar dados do ano atual
             const anoAtual = new Date().getFullYear();
             const dadosAno = dados.filter(ice => {
                 if (!ice.data) return false;
-                const data = new Date(ice.data);
-                return data.getFullYear() === anoAtual;
+                try {
+                    const data = new Date(ice.data);
+                    return data.getFullYear() === anoAtual;
+                } catch (error) {
+                    return false;
+                }
             });
             
-            // Contar por tipificação
             const contagem = {};
             dadosAno.forEach(ice => {
                 const tip = ice.tipificacao || 'Não informado';
@@ -1485,16 +1814,73 @@
             const labels = Object.keys(contagem);
             const values = Object.values(contagem);
             
-            if (chartTipificacaoAnual) {
-                chartTipificacaoAnual.destroy();
+            destruirGrafico('tipificacaoAnual');
+            
+            if (labels.length === 0) {
+                criarGraficoVazio('chart_tipificacao_anual', 'tipificacaoAnual', 'Sem dados para o ano atual');
+                return;
             }
             
-            chartTipificacaoAnual = new Chart(ctx, {
+            charts.tipificacaoAnual = new Chart(canvas.getContext('2d'), {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: [
+                            '#4a7c59', '#6b8e5a', '#8fa85c', '#b3c25e', 
+                            '#d7dc60', '#fbf662', '#f4d03f', '#f7dc6f'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+        }
+
+        function atualizarGraficoGerenciaAnual(dados) {
+            console.log('Atualizando gráfico gerência anual...');
+            const canvas = document.getElementById('chart_gerencia_anual');
+            if (!canvas) return;
+            
+            const anoAtual = new Date().getFullYear();
+            const dadosAno = dados.filter(ice => {
+                if (!ice.data) return false;
+                try {
+                    const data = new Date(ice.data);
+                    return data.getFullYear() === anoAtual;
+                } catch (error) {
+                    return false;
+                }
+            });
+            
+            const contagem = {};
+            dadosAno.forEach(ice => {
+                const ger = ice.ger_jirau || 'Não informado';
+                contagem[ger] = (contagem[ger] || 0) + 1;
+            });
+            
+            const labels = Object.keys(contagem);
+            const values = Object.values(contagem);
+            
+            destruirGrafico('gerenciaAnual');
+            
+            if (labels.length === 0) {
+                criarGraficoVazio('chart_gerencia_anual', 'gerenciaAnual', 'Sem dados para o ano atual');
+                return;
+            }
+            
+            charts.gerenciaAnual = new Chart(canvas.getContext('2d'), {
                 type: 'bar',
                 data: {
                     labels: labels,
                     datasets: [{
-                        label: 'Quantidade',
+                        label: 'Quantidade de ICEs',
                         data: values,
                         backgroundColor: '#4a7c59'
                     }]
@@ -1513,82 +1899,239 @@
             });
         }
 
-        function criarGraficosVazios() {
-            // Gráfico Acumulado vazio
-            const ctxAc = document.getElementById('chart_acumulado').getContext('2d');
-            if (chartAcumulado) chartAcumulado.destroy();
-            chartAcumulado = new Chart(ctxAc, {
+        function atualizarGraficoBcsComparativo(dados) {
+            console.log('Atualizando gráfico BCs comparativo...');
+            const canvas = document.getElementById('chart_bcs_comparativo');
+            if (!canvas) return;
+            
+            const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+            const bcs2024 = new Array(12).fill(0);
+            const bcs2025 = new Array(12).fill(0);
+            
+            dados.forEach(ice => {
+                if (!ice.data) return;
+                try {
+                    const data = new Date(ice.data);
+                    const ano = data.getFullYear();
+                    const mes = data.getMonth();
+                    const bcs = parseInt(ice.quantidade_bcs) || 0;
+                    
+                    if (ano === 2024) {
+                        bcs2024[mes] += bcs;
+                    } else if (ano === 2025) {
+                        bcs2025[mes] += bcs;
+                    }
+                } catch (error) {
+                    console.warn('Erro ao processar BCs comparativo:', error);
+                }
+            });
+            
+            destruirGrafico('bcsComparativo');
+            
+            charts.bcsComparativo = new Chart(canvas.getContext('2d'), {
                 type: 'bar',
                 data: {
-                    labels: ['Fev', 'Mar', 'Abr', 'Mai', 'TOTAL'],
+                    labels: meses,
                     datasets: [{
-                        label: 'Sem dados',
-                        data: [],
-                        backgroundColor: '#E5E5E5'
+                        label: '2024',
+                        data: bcs2024,
+                        backgroundColor: '#4a7c59'
+                    }, {
+                        label: '2025',
+                        data: bcs2025,
+                        backgroundColor: '#2c5530'
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    scales: { y: { beginAtZero: true } }
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { stepSize: 1 }
+                        }
+                    }
                 }
             });
+        }
 
-            // Outros gráficos vazios
-            const ctxTip = document.getElementById('chart_tipificacao_mes').getContext('2d');
-            if (chartTipificacaoMes) chartTipificacaoMes.destroy();
-            chartTipificacaoMes = new Chart(ctxTip, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Sem dados'],
-                    datasets: [{ data: [1], backgroundColor: ['#E5E5E5'] }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } }
+        function atualizarGraficoEvolucaoMensal(dados) {
+            console.log('Atualizando gráfico evolução mensal...');
+            const canvas = document.getElementById('chart_evolucao_mensal');
+            if (!canvas) return;
+            
+            const dados2025 = dados.filter(ice => {
+                if (!ice.data) return false;
+                try {
+                    const data = new Date(ice.data);
+                    return data.getFullYear() === 2025;
+                } catch (error) {
+                    return false;
                 }
             });
-
-            const ctxGer = document.getElementById('chart_gerencia').getContext('2d');
-            if (chartGerencia) chartGerencia.destroy();
-            chartGerencia = new Chart(ctxGer, {
-                type: 'bar',
+            
+            const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+            const icePorMes = new Array(12).fill(0);
+            const acionamentosReais = new Array(12).fill(0);
+            const simulados = new Array(12).fill(0);
+            
+            dados2025.forEach(ice => {
+                try {
+                    const data = new Date(ice.data);
+                    const mes = data.getMonth();
+                    icePorMes[mes]++;
+                    
+                    if (ice.acionamento_real === 'sim') {
+                        acionamentosReais[mes]++;
+                    } else if (ice.acionamento_real === 'simulado') {
+                        simulados[mes]++;
+                    }
+                } catch (error) {
+                    console.warn('Erro ao processar evolução mensal:', error);
+                }
+            });
+            
+            destruirGrafico('evolucaoMensal');
+            
+            charts.evolucaoMensal = new Chart(canvas.getContext('2d'), {
+                type: 'line',
                 data: {
-                    labels: [],
+                    labels: meses,
                     datasets: [{
-                        label: 'Sem dados',
-                        data: [],
-                        backgroundColor: '#E5E5E5'
+                        label: 'Total ICEs',
+                        data: icePorMes,
+                        borderColor: '#4a7c59',
+                        backgroundColor: 'rgba(74, 124, 89, 0.1)',
+                        tension: 0.4,
+                        fill: false
+                    }, {
+                        label: 'Acionamentos Reais',
+                        data: acionamentosReais,
+                        borderColor: '#dc3545',
+                        backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                        tension: 0.4,
+                        fill: false
+                    }, {
+                        label: 'Simulados',
+                        data: simulados,
+                        borderColor: '#ffc107',
+                        backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                        tension: 0.4,
+                        fill: false
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    indexAxis: 'y',
-                    scales: { x: { beginAtZero: true } }
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { stepSize: 1 }
+                        }
+                    },
+                    plugins: {
+                        legend: { position: 'top' }
+                    }
                 }
             });
+        }
 
-            const ctxTipAn = document.getElementById('chart_tipificacao_anual').getContext('2d');
-            if (chartTipificacaoAnual) chartTipificacaoAnual.destroy();
-            chartTipificacaoAnual = new Chart(ctxTipAn, {
-                type: 'bar',
-                data: {
-                    labels: [],
-                    datasets: [{
-                        label: 'Sem dados',
-                        data: [],
-                        backgroundColor: '#E5E5E5'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    indexAxis: 'y',
-                    scales: { x: { beginAtZero: true } }
+        function atualizarTodosGraficos() {
+            console.log('=== ATUALIZANDO TODOS OS GRÁFICOS ===');
+            const dadosFiltrados = filtrarDadosPorPeriodo();
+            console.log('Dados filtrados para gráficos:', dadosFiltrados.length);
+            
+            if (dadosFiltrados.length === 0) {
+                console.log('Nenhum dado encontrado, criando gráficos vazios');
+                criarGraficosVazios();
+                return;
+            }
+            
+            try {
+                atualizarGraficoComparativoAnos(dadosFiltrados);
+                atualizarGraficoTipificacaoMes(dadosFiltrados);
+                atualizarGraficoTipificacaoPorMes(dadosFiltrados);
+                atualizarGraficoBcsMes(dadosFiltrados);
+                atualizarGraficoGerenciaMes(dadosFiltrados);
+                atualizarGraficoTipificacaoAnual(dadosFiltrados);
+                atualizarGraficoGerenciaAnual(dadosFiltrados);
+                atualizarGraficoBcsComparativo(dadosFiltrados);
+                atualizarGraficoEvolucaoMensal(dadosFiltrados);
+                console.log('Todos os gráficos foram atualizados com sucesso!');
+            } catch (error) {
+                console.error('Erro ao atualizar gráficos:', error);
+            }
+        }
+
+        // ========== FUNÇÕES DOS KPIs ==========
+        function atualizarKPIs() {
+            console.log('Atualizando KPIs...');
+            const dadosFiltrados = filtrarDadosPorPeriodo();
+            
+            const totalIces = dadosFiltrados.length;
+            const acionamentosReais = dadosFiltrados.filter(ice => ice.acionamento_real === 'sim').length;
+            const simulados = dadosFiltrados.filter(ice => ice.acionamento_real === 'simulado').length;
+            const taxaReal = totalIces > 0 ? ((acionamentosReais / totalIces) * 100).toFixed(1) : 0;
+            
+            const totalBcs = dadosFiltrados.reduce((total, ice) => {
+                const bcs = parseInt(ice.quantidade_bcs) || 0;
+                return total + bcs;
+            }, 0);
+            
+            document.getElementById('total_ices').textContent = totalIces;
+            document.getElementById('acionamentos_reais').textContent = acionamentosReais;
+            document.getElementById('simulados').textContent = simulados;
+            document.getElementById('taxa_real').textContent = taxaReal + '%';
+            document.getElementById('total_bcs').textContent = totalBcs;
+            
+            console.log('KPIs atualizados:', { totalIces, acionamentosReais, simulados, taxaReal, totalBcs });
+        }
+
+        // ========== FUNÇÕES DO DASHBOARD ==========
+        async function carregarDadosDashboard() {
+            console.log('Carregando dados do dashboard...');
+            try {
+                // Mostrar loading nos KPIs
+                document.getElementById('total_ices').textContent = '...';
+                document.getElementById('acionamentos_reais').textContent = '...';
+                document.getElementById('simulados').textContent = '...';
+                document.getElementById('taxa_real').textContent = '...';
+                document.getElementById('total_bcs').textContent = '...';
+
+                // Carregar dados dos ICEs
+                const responseIce = await callAPI('GET', 'listarIce');
+                
+                if (responseIce.status === 'success') {
+                    dadosIce = responseIce.ice || [];
+                    console.log('Dados ICE carregados:', dadosIce.length, 'registros');
+                    
+                    // Atualizar KPIs
+                    atualizarKPIs();
+                    
+                    // Aguardar um pouco antes de atualizar gráficos
+                    setTimeout(() => {
+                        console.log('Iniciando atualização dos gráficos após carregamento...');
+                        atualizarTodosGraficos();
+                    }, 500);
+                } else {
+                    console.error('Erro ao carregar ICEs:', responseIce.message);
+                    dadosIce = [];
+                    atualizarKPIs();
+                    criarGraficosVazios();
                 }
-            });
+
+                atualizarListaIceDashboard();
+                
+            } catch (error) {
+                console.error('Erro ao carregar dados do dashboard:', error);
+                // Resetar valores em caso de erro
+                document.getElementById('total_ices').textContent = '0';
+                document.getElementById('acionamentos_reais').textContent = '0';
+                document.getElementById('simulados').textContent = '0';
+                document.getElementById('taxa_real').textContent = '0%';
+                document.getElementById('total_bcs').textContent = '0';
+                criarGraficosVazios();
+            }
         }
 
         function atualizarDashboard() {
@@ -1596,125 +2139,184 @@
             carregarDadosDashboard();
         }
 
-        // Lista de ICEs no Dashboard
-        async function atualizarListaIceDashboard() {
+        // ========== FUNÇÕES DE EXPORTAÇÃO ==========
+        function debugGraficos() {
+            console.log('=== DEBUG GRÁFICOS ===');
+            console.log('Dados ICE:', dadosIce.length, 'registros');
+            console.log('Primeiro ICE:', dadosIce[0]);
+            
+            const dadosFiltrados = filtrarDadosPorPeriodo();
+            console.log('Dados filtrados:', dadosFiltrados.length, 'registros');
+            
+            // Verificar canvas
+            const chartIds = [
+                'chart_comparativo_anos', 'chart_tipificacao_mes', 'chart_tipificacao_por_mes',
+                'chart_bcs_mes', 'chart_gerencia_mes', 'chart_tipificacao_anual', 
+                'chart_gerencia_anual', 'chart_bcs_comparativo', 'chart_evolucao_mensal'
+            ];
+            
+            chartIds.forEach(chartId => {
+                const canvas = document.getElementById(chartId);
+                console.log(`Canvas ${chartId}:`, canvas ? 'ENCONTRADO' : 'NÃO ENCONTRADO');
+            });
+            
+            // Verificar instâncias dos gráficos
+            console.log('Estado dos gráficos:', charts);
+            
+            console.log('Forçando atualização dos gráficos...');
+            atualizarTodosGraficos();
+            
+            alert('Debug executado! Verifique o console do navegador (F12) para detalhes.');
+        }
+
+        function exportarExcel() {
             try {
-                document.getElementById('listaIceDashboard').innerHTML = '<div class="loading">Carregando...</div>';
+                const dadosFiltrados = filtrarDadosPorPeriodo();
                 
-                const data = await callAPI('GET', 'listarIce');
-                
-                if (data.status === 'success') {
-                    const lista = document.getElementById('listaIceDashboard');
-                    if (data.ice.length === 0) {
-                        lista.innerHTML = '<div class="text-muted text-center">Nenhum ICE cadastrado</div>';
-                    } else {
-                        // Mostrar os últimos 20 ICEs
-                        const icesRecentes = data.ice.slice(-20).reverse();
-                        lista.innerHTML = icesRecentes.map(ice => `
-                            <div class="ice-item">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <div class="flex-grow-1">
-                                        <div class="d-flex justify-content-between align-items-center mb-2">
-                                            <strong style="color: #4a7c59;">ICE ${String(ice.numero).padStart(3, '0')}</strong>
-                                            <span class="ice-badge badge ${ice.acionamento_real === 'sim' ? 'bg-danger' : ice.acionamento_real === 'simulado' ? 'bg-warning text-dark' : 'bg-secondary'}">${ice.acionamento_real || 'N/A'}</span>
-                                        </div>
-                                        <div class="row text-sm">
-                                            <div class="col-md-6">
-                                                <small><strong>Operador:</strong> ${ice.operador || 'N/A'}</small><br>
-                                                <small><strong>Data/Hora:</strong> ${ice.data || 'N/A'} ${ice.hora || ''}</small><br>
-                                                <small><strong>Local:</strong> ${ice.local || 'N/A'}</small>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <small><strong>Tipificação:</strong> ${ice.tipificacao || 'N/A'}</small><br>
-                                                <small><strong>Gerência:</strong> ${ice.ger_jirau || 'N/A'}</small><br>
-                                                <small><strong>BCs:</strong> ${ice.quantidade_bcs || '0'}</small>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        `).join('');
-                    }
-                } else {
-                    document.getElementById('listaIceDashboard').innerHTML = '<div class="error">Erro ao carregar ICEs: ' + data.message + '</div>';
+                if (dadosFiltrados.length === 0) {
+                    alert('Não há dados para exportar no período selecionado.');
+                    return;
                 }
+
+                const dadosExcel = dadosFiltrados.map(ice => ({
+                    'Número ICE': ice.numero,
+                    'Operador': ice.operador,
+                    'Data': ice.data,
+                    'Hora': ice.hora,
+                    'Tipificação': ice.tipificacao,
+                    'Local': ice.local,
+                    'Referência': ice.referencia,
+                    'Gerência Jirau': ice.ger_jirau,
+                    'Gerente': ice.gerente,
+                    'Nome Informante': ice.nome_informante,
+                    'Matrícula Informante': ice.mat_informante,
+                    'Empresa Informante': ice.empresa_informante,
+                    'Gerência Informante': ice.gerencia_informante,
+                    'Data Informação': ice.data_inf,
+                    'Hora Informação': ice.hora_inf,
+                    'Ramal': ice.ramal,
+                    'Nome Vítima 1': ice.nome_vitima1,
+                    'Função Vítima 1': ice.funcao_vitima1,
+                    'Matrícula Vítima 1': ice.mat_vitima1,
+                    'Empresa Vítima 1': ice.empresa_vitima1,
+                    'Nome Vítima 2': ice.nome_vitima2,
+                    'Função Vítima 2': ice.funcao_vitima2,
+                    'Matrícula Vítima 2': ice.mat_vitima2,
+                    'Empresa Vítima 2': ice.empresa_vitima2,
+                    'Nome Acionamento 1': ice.nome_acionamento1,
+                    'Telefone 1': ice.telefone1,
+                    'Área 1': ice.area1,
+                    'Atendeu 1': ice.atendeu1,
+                    'Nome Acionamento 2': ice.nome_acionamento2,
+                    'Telefone 2': ice.telefone2,
+                    'Área 2': ice.area2,
+                    'Atendeu 2': ice.atendeu2,
+                    'Acionaram Polícia': ice.acionaram_policia,
+                    'Polícia Compareceu': ice.policia_compareceu,
+                    'Acionamento Real': ice.acionamento_real,
+                    'Data Lançamento': ice.data_lancamento,
+                    'Hora Lançamento': ice.hora_lancamento,
+                    'Quantidade BCs': ice.quantidade_bcs,
+                    'Descrição': ice.descricao_ocorrencia
+                }));
+
+                const wb = XLSX.utils.book_new();
+                const ws = XLSX.utils.json_to_sheet(dadosExcel);
+
+                // Adicionar formatação
+                const range = XLSX.utils.decode_range(ws['!ref']);
+                for (let C = range.s.c; C <= range.e.c; ++C) {
+                    const header = XLSX.utils.encode_cell({ r: 0, c: C });
+                    if (!ws[header]) continue;
+                    ws[header].s = {
+                        font: { bold: true },
+                        fill: { fgColor: { rgb: "4a7c59" } }
+                    };
+                }
+
+                XLSX.utils.book_append_sheet(wb, ws, "ICEs");
+
+                const dataAtual = new Date().toISOString().split('T')[0];
+                const nomeArquivo = `Relatorio_ICE_${dataAtual}.xlsx`;
+
+                XLSX.writeFile(wb, nomeArquivo);
+                
+                console.log('Excel exportado com sucesso!');
             } catch (error) {
-                console.error('Erro ao carregar ICEs no dashboard:', error);
-                document.getElementById('listaIceDashboard').innerHTML = '<div class="error">Erro ao carregar ICEs</div>';
+                console.error('Erro ao exportar Excel:', error);
+                alert('Erro ao exportar para Excel: ' + error.message);
             }
+        }
+
+        function imprimirRelatorio() {
+            const originalContents = document.body.innerHTML;
+            const printContents = document.querySelector('.content-area').innerHTML;
+            
+            document.body.innerHTML = `
+                <div style="font-family: Arial, sans-serif; color: black;">
+                    <div style="text-align: center; margin-bottom: 30px;">
+                        <h1 style="color: #4a7c59;">RELATÓRIO ICE - ÍNDICE DE CONTROLE DE EMERGÊNCIA</h1>
+                        <p>Relatório gerado em: ${new Date().toLocaleString('pt-BR')}</p>
+                    </div>
+                    ${printContents}
+                </div>
+            `;
+            
+            window.print();
+            document.body.innerHTML = originalContents;
+            
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
         }
 
         // ========== FUNÇÕES CRUD ==========
         async function carregarDadosListas() {
             try {
+                console.log('Carregando dados das listas...');
+                
                 // Carregar operadores
                 const responseOperadores = await callAPI('GET', 'listarOperadores');
                 if (responseOperadores.status === 'success') {
-                    dadosOperadores = responseOperadores.operadores;
+                    dadosOperadores = responseOperadores.operadores || [];
                     preencherSelect('ice_operador', dadosOperadores, 'nome', 'nome');
                 }
 
                 // Carregar tipificações
                 const responseTipificacoes = await callAPI('GET', 'listarTipificacoes');
                 if (responseTipificacoes.status === 'success') {
-                    dadosTipificacoes = responseTipificacoes.tipificacoes;
+                    dadosTipificacoes = responseTipificacoes.tipificacoes || [];
                     preencherSelect('ice_tipificacao', dadosTipificacoes, 'nome', 'nome');
                 }
 
                 // Carregar gestores
                 const responseGestores = await callAPI('GET', 'listarGestores');
                 if (responseGestores.status === 'success') {
-                    dadosGestores = responseGestores.gestores;
+                    dadosGestores = responseGestores.gestores || [];
                     preencherSelect('ice_gerente', dadosGestores, 'nome', 'nome');
                 }
 
                 // Carregar gerências
                 const responseGerencias = await callAPI('GET', 'listarGerencias');
                 if (responseGerencias.status === 'success') {
-                    dadosGerencias = responseGerencias.gerencias;
+                    dadosGerencias = responseGerencias.gerencias || [];
                     preencherSelect('ice_ger_jirau', dadosGerencias, 'nome', 'nome');
+                    preencherSelect('ice_gerencia_informante', dadosGerencias, 'nome', 'nome');
                 }
 
                 // Carregar empresas
                 const responseEmpresas = await callAPI('GET', 'listarEmpresas');
                 if (responseEmpresas.status === 'success') {
-                    dadosEmpresas = responseEmpresas.empresas.filter(emp => emp.status === 'ativo');
+                    dadosEmpresas = (responseEmpresas.empresas || []).filter(emp => emp.status === 'ativo');
                     preencherSelect('ice_empresa_informante', dadosEmpresas, 'nome', 'nome');
                     preencherSelect('ice_empresa_vitima1', dadosEmpresas, 'nome', 'nome');
                     preencherSelect('ice_empresa_vitima2', dadosEmpresas, 'nome', 'nome');
                 }
 
+                console.log('Dados das listas carregados com sucesso!');
             } catch (error) {
                 console.error('Erro ao carregar dados das listas:', error);
             }
-        }
-
-        function preencherSelect(selectId, dados, valueField, textField) {
-            const select = document.getElementById(selectId);
-            if (!select) return;
-
-            const opcaoPadrao = select.querySelector('option[value=""]');
-            select.innerHTML = '';
-            if (opcaoPadrao) {
-                select.appendChild(opcaoPadrao);
-            }
-
-            dados.forEach(item => {
-                const option = document.createElement('option');
-                option.value = item[valueField];
-                option.textContent = item[textField];
-                select.appendChild(option);
-            });
-        }
-
-        function preencherDataHoraAtual() {
-            const agora = new Date();
-            const dataAtual = agora.toISOString().split('T')[0]; // YYYY-MM-DD
-            const horaAtual = agora.toTimeString().split(' ')[0].substring(0, 5); // HH:MM
-            
-            // Preencher data e hora de lançamento automaticamente
-            document.getElementById('ice_data_lancamento').value = dataAtual;
-            document.getElementById('ice_hora_lancamento').value = horaAtual;
         }
 
         async function obterProximoNumeroICE() {
@@ -1751,7 +2353,7 @@
                 nome_informante: document.getElementById('ice_nome_informante').value.trim(),
                 mat_informante: document.getElementById('ice_mat_informante').value.trim(),
                 empresa_informante: document.getElementById('ice_empresa_informante').value,
-                departamento: document.getElementById('ice_departamento').value.trim(),
+                gerencia_informante: document.getElementById('ice_gerencia_informante').value,
                 data_inf: document.getElementById('ice_data_inf').value,
                 hora_inf: document.getElementById('ice_hora_inf').value,
                 ramal: document.getElementById('ice_ramal').value.trim(),
@@ -1791,7 +2393,7 @@
                 if (response.status === 'success') {
                     alert(response.message);
                     document.getElementById('formIce').reset();
-                    preencherDataHoraAtual(); // Preencher automaticamente após reset
+                    preencherDataHoraAtual();
                     await obterProximoNumeroICE();
                     await carregarDadosListas();
                     atualizarListaIce();
@@ -1802,6 +2404,53 @@
             } catch (error) {
                 console.error('Erro ao cadastrar ICE:', error);
                 alert('Erro ao cadastrar ICE: ' + error.message);
+            }
+        }
+
+        // Lista de ICEs no Dashboard
+        async function atualizarListaIceDashboard() {
+            try {
+                document.getElementById('listaIceDashboard').innerHTML = '<div class="loading">Carregando...</div>';
+                
+                const data = await callAPI('GET', 'listarIce');
+                
+                if (data.status === 'success') {
+                    const lista = document.getElementById('listaIceDashboard');
+                    if (data.ice.length === 0) {
+                        lista.innerHTML = '<div class="text-muted text-center">Nenhum ICE cadastrado</div>';
+                    } else {
+                        const icesRecentes = data.ice.slice(-20).reverse();
+                        lista.innerHTML = icesRecentes.map(ice => `
+                            <div class="ice-item">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <strong style="color: #4a7c59;">ICE ${String(ice.numero).padStart(3, '0')}</strong>
+                                            <span class="ice-badge badge ${ice.acionamento_real === 'sim' ? 'bg-danger' : ice.acionamento_real === 'simulado' ? 'bg-warning text-dark' : 'bg-secondary'}">${ice.acionamento_real || 'N/A'}</span>
+                                        </div>
+                                        <div class="row text-sm">
+                                            <div class="col-md-6">
+                                                <small><strong>Operador:</strong> ${ice.operador || 'N/A'}</small><br>
+                                                <small><strong>Data/Hora:</strong> ${ice.data || 'N/A'} ${ice.hora || ''}</small><br>
+                                                <small><strong>Local:</strong> ${ice.local || 'N/A'}</small>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <small><strong>Tipificação:</strong> ${ice.tipificacao || 'N/A'}</small><br>
+                                                <small><strong>Gerência:</strong> ${ice.ger_jirau || 'N/A'}</small><br>
+                                                <small><strong>BCs:</strong> ${ice.quantidade_bcs || '0'}</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('');
+                    }
+                } else {
+                    document.getElementById('listaIceDashboard').innerHTML = '<div class="error">Erro ao carregar ICEs: ' + data.message + '</div>';
+                }
+            } catch (error) {
+                console.error('Erro ao carregar ICEs no dashboard:', error);
+                document.getElementById('listaIceDashboard').innerHTML = '<div class="error">Erro ao carregar ICEs</div>';
             }
         }
 
@@ -2071,42 +2720,22 @@
             }
         }
 
-        // ========== INICIALIZAÇÃO DO SISTEMA ==========
-        window.addEventListener('load', function() {
-            console.log('Sistema inicializando...');
-            
-            // Inicializar gráficos vazios primeiro
-            criarGraficosVazios();
-            
-            // Preencher data e hora atual
-            preencherDataHoraAtual();
-            
-            // Aguardar e carregar dados
-            setTimeout(async () => {
-                try {
-                    await obterProximoNumeroICE();
-                    await carregarDadosListas();
-                    await carregarDadosDashboard();
-                    
-                    await Promise.all([
-                        atualizarListaIce(),
-                        atualizarListaTipificacoes(),
-                        atualizarListaOperadores(),
-                        atualizarListaGestores(),
-                        atualizarListaGerencias(),
-                        atualizarListaEmpresas()
-                    ]);
-                    
-                    console.log('Sistema inicializado com sucesso!');
-                } catch (error) {
-                    console.error('Erro na inicialização:', error);
-                    alert('Erro ao inicializar o sistema. Verifique a conexão com a API.');
-                }
-            }, 1000);
-        });
-
-        // Event listeners
+        // ========== EVENT LISTENERS ==========
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM carregado, configurando event listeners...');
+            
+            // Event listeners para navegação
+            const navLinks = document.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    const target = this.getAttribute('data-target');
+                    if (target) {
+                        showTab(target);
+                    }
+                });
+            });
+
+            // Event listeners para filtros
             const filtroPeriodo = document.getElementById('filtro_periodo');
             if (filtroPeriodo) {
                 filtroPeriodo.addEventListener('change', function() {
@@ -2121,10 +2750,13 @@
                         } else {
                             dataInicio.style.display = 'none';
                             dataFim.style.display = 'none';
-                            if (dadosIce.length > 0) {
-                                atualizarKPIs();
-                                atualizarGraficos();
-                            }
+                            // Atualizar automaticamente quando não for personalizado
+                            setTimeout(() => {
+                                if (dadosIce.length > 0) {
+                                    atualizarKPIs();
+                                    atualizarTodosGraficos();
+                                }
+                            }, 100);
                         }
                     }
                 });
@@ -2137,8 +2769,10 @@
             if (dataInicio) {
                 dataInicio.addEventListener('change', function() {
                     if (document.getElementById('filtro_periodo').value === 'personalizado') {
-                        atualizarKPIs();
-                        atualizarGraficos();
+                        setTimeout(() => {
+                            atualizarKPIs();
+                            atualizarTodosGraficos();
+                        }, 100);
                     }
                 });
             }
@@ -2146,12 +2780,72 @@
             if (dataFim) {
                 dataFim.addEventListener('change', function() {
                     if (document.getElementById('filtro_periodo').value === 'personalizado') {
-                        atualizarKPIs();
-                        atualizarGraficos();
+                        setTimeout(() => {
+                            atualizarKPIs();
+                            atualizarTodosGraficos();
+                        }, 100);
                     }
                 });
             }
         });
+
+        // ========== INICIALIZAÇÃO DO SISTEMA ==========
+        window.addEventListener('load', function() {
+            console.log('Sistema ICE inicializando...');
+            
+            // Inicializar gráficos vazios primeiro
+            setTimeout(() => {
+                criarGraficosVazios();
+            }, 100);
+            
+            // Preencher data e hora atual
+            preencherDataHoraAtual();
+            
+            // Aguardar e carregar dados
+            setTimeout(async () => {
+                try {
+                    console.log('Iniciando carregamento dos dados...');
+                    
+                    await obterProximoNumeroICE();
+                    await carregarDadosListas();
+                    await carregarDadosDashboard();
+                    
+                    await Promise.all([
+                        atualizarListaIce(),
+                        atualizarListaTipificacoes(),
+                        atualizarListaOperadores(),
+                        atualizarListaGestores(),
+                        atualizarListaGerencias(),
+                        atualizarListaEmpresas()
+                    ]);
+                    
+                    console.log('Sistema ICE inicializado com sucesso!');
+                } catch (error) {
+                    console.error('Erro na inicialização:', error);
+                    alert('Erro ao inicializar o sistema. Verifique a conexão com a API.');
+                }
+            }, 1000);
+        });
+
+        // ========== FUNÇÕES GLOBAIS ==========
+        // Tornar funções disponíveis globalmente para os botões HTML
+        window.atualizarDashboard = atualizarDashboard;
+        window.debugGraficos = debugGraficos;
+        window.exportarExcel = exportarExcel;
+        window.imprimirRelatorio = imprimirRelatorio;
+        window.atualizarListaIceDashboard = atualizarListaIceDashboard;
+        window.atualizarListaIce = atualizarListaIce;
+        window.atualizarListaTipificacoes = atualizarListaTipificacoes;
+        window.atualizarListaOperadores = atualizarListaOperadores;
+        window.atualizarListaGestores = atualizarListaGestores;
+        window.atualizarListaGerencias = atualizarListaGerencias;
+        window.atualizarListaEmpresas = atualizarListaEmpresas;
+        window.cadastrarIce = cadastrarIce;
+        window.cadastrarTipificacao = cadastrarTipificacao;
+        window.cadastrarOperador = cadastrarOperador;
+        window.cadastrarGestor = cadastrarGestor;
+        window.cadastrarGerencia = cadastrarGerencia;
+        window.cadastrarEmpresa = cadastrarEmpresa;
     </script>
 </body>
 </html>
